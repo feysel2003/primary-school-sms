@@ -49,10 +49,18 @@ function Login() {
       }));
 
       // Redirect based on role
-      if (response.data.user.role === 'PARENT') {
+      const userRole = response.data.user.role;
+      
+      if (userRole === 'PARENT') {
         navigate('/parent');
+      } else if (userRole === 'TEACHER') {
+        navigate('/teacher');
+      } else if (userRole === 'SCHOOL_ADMIN') {
+        navigate('/school_admin');
+      } else if (userRole === 'SUPER_ADMIN') {
+        navigate('/admin'); // Your Super Admin dashboard!
       } else {
-        navigate('/admin');
+        navigate('/login'); // Fallback just in case
       }
 
     } catch (err) {
