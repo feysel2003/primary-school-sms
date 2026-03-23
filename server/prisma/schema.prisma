@@ -1,13 +1,48 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+// ---------------------------------------------------
+// GLOBAL SCHEMA (Super Admin Level)
+// ---------------------------------------------------
+
+// The 'Tenant' represents an independent School
+model Tenant {
+  id              String   @id @default(uuid())
+  name            String   // e.g., "Hilawe Primary School"
+  subdomain       String   @unique // e.g., "hilawe" -> hilawe.ourplatform.com
+  status          String   @default("ACTIVE") // ACTIVE, SUSPENDED
+  subscriptionEnd DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  users           User[]   // A school has many users
+}
+
+// Global Users table (Admins, Teachers, Parents)
+model User {
+  id           String   @id @default(uuid())
+  email        String?  @unique
+  phone        String   @unique // Important for Ethiopia (Telebirr/Telegram)
+  password     String
+  role         Role     @default(PARENT) // Enum below
+  language     String   @default("am") // default to Amharic
+  
+  // Relation to the School (Tenant)
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+enum Role {
+  SUPER_ADMIN
+  SCHOOL_ADMIN
+  TEACHER
+  PARENT
 }
