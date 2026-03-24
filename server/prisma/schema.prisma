@@ -23,6 +23,7 @@ model Tenant {
 
   users           User[]   
   students        Student[] // A school has many students
+  attendances     Attendance[]
 }
 
 // Global Users table (Admins, Teachers, Parents)
@@ -72,4 +73,23 @@ model Student {
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  attendances     Attendance[]
+}
+
+// The Daily Attendance Model
+model Attendance {
+  id        String   @id @default(uuid())
+  date      DateTime @default(now()) // The day the roll call was taken
+  status    String   // e.g., "PRESENT", "ABSENT", "LATE"
+  
+  // Link to the Student
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  // Link to the School (Tenant)
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
