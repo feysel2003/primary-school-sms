@@ -36,4 +36,31 @@ const saveAttendance = async (req, res) => {
   }
 };
 
-module.exports = { saveAttendance };
+const getParentAttendance = async (req, res) => {
+  try {
+    const parentId = req.user.id; // Get the logged-in parent's ID from the JWT token
+
+    // Find the last 10 attendance records for this parent's children
+    const recentAttendance = await prisma.attendance.findMany({
+      where: {
+        student: {
+          parentId: parentId // Only get attendance if the student belongs to this parent!
+        }
+      },
+      include: {
+        student: true // Include the student's name so we know who it is
+      },
+      orderBy: {
+        date: 'desc' // Show the newest records first
+      },
+      take: 10
+    });
+
+    res.json(recentAttendance);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server Error fetching attendance' });
+  }
+};
+
+module.exports = { saveAttendance, getParentAttendance };

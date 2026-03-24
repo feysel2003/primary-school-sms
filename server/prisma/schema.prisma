@@ -24,6 +24,7 @@ model Tenant {
   users           User[]   
   students        Student[] // A school has many students
   attendances     Attendance[]
+  grades          Grade[]
 }
 
 // Global Users table (Admins, Teachers, Parents)
@@ -74,6 +75,7 @@ model Student {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   attendances     Attendance[]
+  grades          Grade[]
 }
 
 // The Daily Attendance Model
@@ -92,4 +94,25 @@ model Attendance {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// The Student Grades Model
+model Grade {
+  id              String   @id @default(uuid())
+  subject         String   // e.g., "Math", "Amharic", "English"
+  assessmentType  String   // e.g., "Test 1", "Midterm", "Final Exam"
+  score           Float    // The mark the student got (e.g., 85.5)
+  maxScore        Float    @default(100) // Out of what? (usually 100)
+  term            String   // e.g., "Term 1", "Semester 1"
+  
+  // Link to the Student
+  studentId       String
+  student         Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  // Link to the School (Tenant)
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
