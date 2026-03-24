@@ -1,10 +1,17 @@
 const express = require('express');
-const { getStudentsBySchool } = require('../../controllers/studentController');
-const { verifyToken } = require('../../middlewares/auth'); // We will create this security guard next!
+const { getStudentsBySchool, getSetupData, registerStudent } = require('../../controllers/studentController');
+const { verifyToken } = require('../../middlewares/auth');
+const { authorizeRoles } = require('../../middlewares/roleCheck');
 
 const router = express.Router();
 
-// GET request to /api/v1/students (Protected by JWT token)
-router.get('/', verifyToken, getStudentsBySchool);
+// GET: Teacher fetches students for roll call
+router.get('/', verifyToken, authorizeRoles('TEACHER', 'SCHOOL_ADMIN'), getStudentsBySchool);
+
+// GET: Admin fetches school setup data (Years, Grades, Sections)
+router.get('/setup', verifyToken, authorizeRoles('SCHOOL_ADMIN', 'REGISTRAR'), getSetupData);
+
+// POST: Admin officially registers and enrolls a student
+router.post('/register', verifyToken, authorizeRoles('SCHOOL_ADMIN', 'REGISTRAR'), registerStudent);
 
 module.exports = router;

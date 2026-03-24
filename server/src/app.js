@@ -5,6 +5,9 @@ const authRoutes = require('./routes/v1/authRoutes'); // <-- Import  routes
 const studentRoutes = require('./routes/v1/studentRoutes'); // <-- Import it
 const attendanceRoutes = require('./routes/v1/attendanceRoutes'); // <-- Import it
 const gradeRoutes = require('./routes/v1/gradeRoutes'); // <-- Import it
+const moeRoutes = require('./routes/v1/moeRoutes'); // <-- Import it
+const userRoutes = require('./routes/v1/userRoutes'); // <-- Import it
+
 
 dotenv.config();
 
@@ -26,4 +29,7 @@ app.use('/api/v1/students', studentRoutes); // <-- Connect it!
 
 app.use('/api/v1/grades', gradeRoutes); // <-- Connect it!
 
+app.use('/api/v1/users', userRoutes); // <-- Connect it!
+
+app.use('/api/v1/moe', moeRoutes); // <-- Connect it!
 module.exports = app;

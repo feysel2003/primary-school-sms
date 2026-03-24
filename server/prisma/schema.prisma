@@ -7,112 +7,217 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ---------------------------------------------------
-// GLOBAL SCHEMA (Super Admin Level)
-// ---------------------------------------------------
+// ===================================================
+// 1. GLOBAL & TENANT CONFIGURATION
+// ===================================================
 
-// The 'Tenant' represents an independent School
 model Tenant {
-  id              String   @id @default(uuid())
-  name            String   
-  subdomain       String   @unique 
-  status          String   @default("ACTIVE") 
-  subscriptionEnd DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id              String         @id @default(uuid())
+  name            String         // "Hilawe Primary & Secondary School"
+  subdomain       String         @unique 
+  status          String         @default("ACTIVE") 
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
-  users           User[]   
-  students        Student[] // A school has many students
-  attendances     Attendance[]
-  grades          Grade[]
+  users           User[]
+  students        Student[]
+  academicYears   AcademicYear[]
+  gradeLevels     GradeLevel[]
+  subjects        Subject[]
 }
 
-// Global Users table (Admins, Teachers, Parents)
-model User {
-  id           String   @id @default(uuid())
-  email        String?  @unique
-  phone        String   @unique 
-  password     String
-  role         Role     @default(PARENT) 
-  language     String   @default("am") 
-  
-  tenantId     String
-  tenant       Tenant   @relation(fields: [tenantId], references:[id], onDelete: Cascade)
-
-  children     Student[] // <-- NEW: A parent can have multiple children!
-
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-}
-
+// Defines all possible actors in the system
 enum Role {
-  SUPER_ADMIN
-  SCHOOL_ADMIN
-  TEACHER
-  PARENT
+  SUPER_ADMIN    // System Owner
+  SCHOOL_ADMIN   // Principal/Director
+  REGISTRAR      // Manages Enrollments & Transcripts
+  FINANCE        // Cashier for tuition/fees
+  TEACHER        // Enters grades & attendance
+  PARENT         // Views children's progress & pays fees
+  STUDENT        // Older students (G9-12) who login themselves
 }
 
-// ---------------------------------------------------
-// SCHOOL DATA SCHEMA
-// ---------------------------------------------------
+model User {
+  id               String   @id @default(uuid())
+  phone            String   @unique 
+  password         String
+  role             Role     @default(PARENT) 
+  language         String   @default("am") 
+  telegramChatId   String?  @unique
+  
+  tenantId         String
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-// The Student Model
+  // RELATIONS
+  children         Student[] @relation("ParentChildren") // If user is PARENT
+  studentProfile   Student?  @relation("StudentAccount") // If user is STUDENT
+
+  // For Teachers
+  homeroomSections Section[] @relation("HomeroomTeacher")
+  teachingClasses  TeacherAssignment[]
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+// ===================================================
+// 2. ACADEMICS & STRUCTURAL SETUP
+// ===================================================
+
+// e.g., "2018 E.C.", "2019 E.C."
+model AcademicYear {
+  id          String       @id @default(uuid())
+  yearName    String       
+  isActive    Boolean      @default(false) // Only ONE year is active at a time
+  
+  tenantId    String
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  enrollments Enrollment[]
+  assignments TeacherAssignment[]
+}
+
+// Ethiopian Educational Cycles
+enum Cycle {
+  LOWER_PRIMARY // KG to Grade 4
+  UPPER_PRIMARY // Grade 5 to Grade 8
+  SECONDARY     // Grade 9 to Grade 12
+}
+
+// e.g., "Grade 9", "KG 2"
+model GradeLevel {
+  id          String    @id @default(uuid())
+  name        String    
+  cycle       Cycle     
+  
+  tenantId    String
+  tenant      Tenant    @relation(fields:[tenantId], references: [id], onDelete: Cascade)
+  
+  sections    Section[]
+}
+
+// e.g., "Grade 9 - Section A", "Grade 9 - Section B"
+model Section {
+  id                String       @id @default(uuid())
+  name              String       // e.g., "Section A"
+  
+  gradeLevelId      String
+  gradeLevel        GradeLevel   @relation(fields: [gradeLevelId], references: [id], onDelete: Cascade)
+  
+  // A section has one Homeroom Teacher
+  homeroomTeacherId String?
+  homeroomTeacher   User?        @relation("HomeroomTeacher", fields:[homeroomTeacherId], references: [id])
+  
+  enrollments       Enrollment[]
+  teacherAssignments TeacherAssignment[]
+}
+
+// e.g., "Mathematics", "Amharic", "Physics"
+model Subject {
+  id          String    @id @default(uuid())
+  name        String
+  code        String?   // e.g., "MATH-101"
+  
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  assignments TeacherAssignment[]
+  grades      Grade[]
+}
+
+// Links a Teacher to a Subject and a specific Section for an Academic Year
+model TeacherAssignment {
+  id             String       @id @default(uuid())
+  
+  teacherId      String
+  teacher        User         @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  
+  subjectId      String
+  subject        Subject      @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  
+  sectionId      String
+  section        Section      @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+}
+
+// ===================================================
+// 3. STUDENT LIFECYCLE & HISTORICAL RECORDS
+// ===================================================
+
 model Student {
   id          String   @id @default(uuid())
+  studentId   String   @unique // The physical school ID card number (e.g., ETS0012/18)
   firstName   String
   lastName    String
-  gender      String   // "MALE" or "FEMALE"
-  grade       String   // e.g., "KG1", "Grade 2"
+  gender      String
+  dob         DateTime?
   
-  // Link to the Parent
-  parentId    String
-  parent      User     @relation(fields: [parentId], references: [id])
+  // Relation to the Parent (for billing and alerts)
+  parentId    String?
+  parent      User?    @relation("ParentChildren", fields: [parentId], references: [id])
+  
+  // Relation to their own User Account (if High School student logs in)
+  userId      String?  @unique
+  user        User?    @relation("StudentAccount", fields: [userId], references: [id])
 
-  // Link to the School
   tenantId    String
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  enrollments Enrollment[] // The history of every grade they've been in!
+  
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  attendances     Attendance[]
-  grades          Grade[]
 }
 
-// The Daily Attendance Model
+// Maps a Student to a Section for a Specific Year
+model Enrollment {
+  id             String       @id @default(uuid())
+  status         String       @default("ACTIVE") // ACTIVE, PROMOTED, RETAINED, DROPOUT
+  
+  studentId      String
+  student        Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  
+  sectionId      String
+  section        Section      @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  attendances    Attendance[]
+  grades         Grade[]
+}
+
+// ===================================================
+// 4. DAILY OPERATIONS (Grades & Attendance)
+// ===================================================
+
 model Attendance {
-  id        String   @id @default(uuid())
-  date      DateTime @default(now()) // The day the roll call was taken
-  status    String   // e.g., "PRESENT", "ABSENT", "LATE"
+  id           String     @id @default(uuid())
+  date         DateTime   @default(now())
+  status       String     // PRESENT, ABSENT, LATE, EXCUSED
   
-  // Link to the Student
-  studentId String
-  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  // Attendance is tied to a specific Enrollment history, not just the student
+  enrollmentId String
+  enrollment   Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
 
-  // Link to the School (Tenant)
-  tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt    DateTime   @default(now())
 }
 
-// The Student Grades Model
 model Grade {
-  id              String   @id @default(uuid())
-  subject         String   // e.g., "Math", "Amharic", "English"
-  assessmentType  String   // e.g., "Test 1", "Midterm", "Final Exam"
-  score           Float    // The mark the student got (e.g., 85.5)
-  maxScore        Float    @default(100) // Out of what? (usually 100)
-  term            String   // e.g., "Term 1", "Semester 1"
+  id             String     @id @default(uuid())
+  assessmentType String     // Test 1, Midterm, Final
+  score          Float
+  maxScore       Float      @default(100)
+  term           String     // Semester 1, Semester 2
   
-  // Link to the Student
-  studentId       String
-  student         Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  enrollmentId   String
+  enrollment     Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
 
-  // Link to the School (Tenant)
-  tenantId        String
-  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  subjectId      String
+  subject        Subject    @relation(fields: [subjectId], references: [id], onDelete: Cascade)
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
 }

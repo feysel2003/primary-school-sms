@@ -5,14 +5,8 @@ import ParentLayout from '../layouts/ParentLayout';
 import AdminLayout from '../layouts/AdminLayout';
 import ParentDashboard from '../features/students/ParentDashboard';
 import TeacherDashboard from '../features/attendance/TeacherDashboard';
-
-// A temporary placeholder for the Admin Dashboard
-const AdminDashboard = () => (
-  <div className="bg-white dark:bg-slate-800 p-8 rounded-xl shadow text-center">
-    <h1 className="text-2xl font-bold dark:text-white">Admin Statistics Here</h1>
-  </div>
-);
-
+import AdminDashboard from '../features/moe-report/AdminDashboard';
+import UserManagement from '../features/admin/UserManagement';
 const AppRoutes = () => {
   return (
     <BrowserRouter>
@@ -36,7 +30,7 @@ const AppRoutes = () => {
         {/* === SCHOOL ADMIN ROUTES === */}
         <Route element={<ProtectedRoute allowedRoles={['SCHOOL_ADMIN']} />}>
           <Route path="/school_admin" element={<AdminLayout />}>
-            <Route index element={<AdminDashboard />} />
+            <Route index element={<UserManagement />} />
           </Route>
         </Route>
 

@@ -1,5 +1,5 @@
 const prisma = require('../config/db');
-
+const { sendTelegramAlert } = require('../utils/telegramBot'); // <-- IMPORT THE BOT
 const saveAttendance = async (req, res) => {
   try {
     // React will send us the records object and the date
@@ -24,6 +24,26 @@ const saveAttendance = async (req, res) => {
     const savedRecords = await prisma.attendance.createMany({
       data: attendanceData,
     });
+
+    // --- 🚀 NEW: TELEGRAM ALERT LOGIC ---
+    // Loop through the students we just marked
+    for (const record of attendanceData) {
+      // Find the student's parent
+      const student = await prisma.student.findUnique({
+        where: { id: record.studentId },
+        include: { parent: true }
+      });
+
+      // If the parent has linked their Telegram, shoot them a message!
+      if (student && student.parent && student.parent.telegramChatId) {
+        const emoji = record.status === 'PRESENT' ? '✅' : '❌';
+        const message = `${emoji} School Alert:\n${student.firstName} ${student.lastName} was marked ${record.status} today.`;
+        
+        // Fire the message instantly!
+        await sendTelegramAlert(student.parent.telegramChatId, message);
+      }
+    }
+    // --- END TELEGRAM LOGIC ---
 
     res.json({ 
       message: 'Attendance saved successfully!', 
