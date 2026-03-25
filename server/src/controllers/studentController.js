@@ -33,7 +33,7 @@ const registerStudent = async (req, res) => {
 
     const defaultPassword = await bcrypt.hash('password123', 10);
 
-    // Use a Prisma Transaction to ensure everything succeeds together!
+    // Use a Prisma Transaction WITH INCREASED TIMEOUT for Neon Cloud cold starts!
     const result = await prisma.$transaction(async (tx) => {
       
       // A. Handle the Parent Account
@@ -75,6 +75,10 @@ const registerStudent = async (req, res) => {
       });
 
       return newStudent;
+    }, {
+      // THE FIX: Give the Neon Serverless Database up to 20 seconds to process!
+      maxWait: 10000,
+      timeout: 20000
     });
 
     res.status(201).json({ message: '✅ Student successfully registered and enrolled!', student: result });

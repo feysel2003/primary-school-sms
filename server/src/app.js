@@ -9,6 +9,7 @@ const moeRoutes = require('./routes/v1/moeRoutes'); // <-- Import it
 const userRoutes = require('./routes/v1/userRoutes'); // <-- Import it
 const tenantRoutes = require('./routes/v1/tenantRoutes'); // <-- Import it
 const academicRoutes = require('./routes/v1/academicRoutes'); // <-- Import
+const teacherRoutes = require('./routes/v1/teacherRoutes');
 
 dotenv.config();
 
@@ -35,6 +36,7 @@ app.use('/api/v1/users', userRoutes); // <-- Connect it!
 app.use('/api/v1/moe', moeRoutes); // <-- Connect it!
 
 app.use('/api/v1/academics', academicRoutes); // <-- Connect
+app.use('/api/v1/teacher', teacherRoutes); // <-- Connect it!
 
 app.use('/api/v1/tenants', tenantRoutes);
 module.exports = app;

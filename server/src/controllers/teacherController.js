@@ -56,5 +56,50 @@ const getClassRoster = async (req, res) => {
     res.status(500).json({ message: 'Server error fetching class roster' });
   }
 };
+// 3. Get the Gradebook (All past grades for a specific class & subject)
+const getClassGradebook = async (req, res) => {
+  try {
+    const { sectionId, subjectId } = req.params;
+    
+    const grades = await prisma.grade.findMany({
+      where: {
+        enrollment: { sectionId: sectionId, status: 'ACTIVE' },
+        subjectId: subjectId
+      },
+      include: {
+        enrollment: { include: { student: true } } // Get student names
+      },
+      orderBy: { createdAt: 'desc' }
+    });
 
-module.exports = { getMyClasses, getClassRoster };
+    res.json(grades);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error fetching gradebook' });
+  }
+};
+
+// 4. Get Attendance History (Past week/month for a specific class)
+const getClassAttendanceHistory = async (req, res) => {
+  try {
+    const { sectionId } = req.params;
+
+    const attendance = await prisma.attendance.findMany({
+      where: {
+        enrollment: { sectionId: sectionId, status: 'ACTIVE' }
+      },
+      include: {
+        enrollment: { include: { student: true } }
+      },
+      orderBy: { date: 'desc' } // Newest dates first
+    });
+
+    res.json(attendance);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error fetching attendance history' });
+  }
+};
+
+// DON'T FORGET TO EXPORT ALL 4 FUNCTIONS NOW!
+module.exports = { getMyClasses, getClassRoster, getClassGradebook, getClassAttendanceHistory };
