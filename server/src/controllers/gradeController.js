@@ -3,24 +3,38 @@ const prisma = require('../config/db');
 // --- TEACHER: Save Grades ---
 const saveGrades = async (req, res) => {
   try {
-    // records looks like: { "enrollment_uuid": 85, "enrollment_uuid_2": 92 }
-    const { subjectId, assessmentType, term, records } = req.body; 
+    // We now extract maxScore from the React request!
+    const { subjectId, assessmentType, term, maxScore, records } = req.body; 
 
-    // Convert the records object into an array formatted for the new Schema
-    const gradeData = Object.keys(records).map((enrollmentId) => ({
+    const enrollmentIds = Object.keys(records);
+
+    if (enrollmentIds.length === 0) {
+      return res.status(400).json({ message: 'No grades provided.' });
+    }
+
+    // 🔥 ENTERPRISE UPGRADE: Prevent Duplicate Grades!
+    // If the teacher is fixing a mistake and re-saving the "Midterm", 
+    // we delete the old Midterm records for these students first.
+    await prisma.grade.deleteMany({
+      where: {
+        subjectId: subjectId,
+        assessmentType: assessmentType,
+        term: term,
+        enrollmentId: { in: enrollmentIds }
+      }
+    });
+
+    // Convert the records object into an array formatted for the database
+    const gradeData = enrollmentIds.map((enrollmentId) => ({
       enrollmentId: enrollmentId,
       subjectId: subjectId,
       assessmentType: assessmentType,
       score: parseFloat(records[enrollmentId]), 
-      maxScore: 100,
+      maxScore: parseFloat(maxScore) || 100, // <-- 🔥 DYNAMIC MAX SCORE!
       term: term
     }));
 
-    if (gradeData.length === 0) {
-      return res.status(400).json({ message: 'No grades provided.' });
-    }
-
-    // Bulk insert into the Grade table
+    // Bulk insert the new, correct grades!
     const savedGrades = await prisma.grade.createMany({
       data: gradeData,
     });
@@ -41,7 +55,7 @@ const getParentGrades = async (req, res) => {
     const recentGrades = await prisma.grade.findMany({
       where: {
         enrollment: {
-          student: { parentId: parentId } // Drills down through Enrollment to Student
+          student: { parentId: parentId } 
         }
       },
       include: { 
